@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'organization' => env('OPENAI_ORGANIZATION'),
+        'chat_model' => env('OPENAI_MODEL', 'gpt-4o'),
+        'vision_model' => env('OPENAI_VISION_MODEL', 'gpt-4o'),
+        'embeddings_model' => env('OPENAI_EMBEDDINGS_MODEL', 'text-embedding-3-small'),
+        'embeddings_dimensions' => (int) env('OPENAI_EMBEDDINGS_DIMENSIONS', 1536),
+    ],
+
 ];

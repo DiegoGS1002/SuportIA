@@ -7,6 +7,124 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+# SuportIA
+
+SuportIA e um agente de suporte tecnico inteligente para os softwares **Home** e **Stella** da Data C. O sistema recebe mensagens (texto e/ou prints de tela), diagnostica erros operacionais, falhas de sistema e rejeicoes fiscais (SEFAZ), buscando primeiro na base de conhecimento interna (RAG) e, mediante consentimento explicito do usuario, em fontes externas via OpenAI.
+
+O comportamento operacional do agente e definido em [`prompt/AgenteIA.md`](prompt/AgenteIA.md) (prompt canonico) e a arquitetura tecnica esta descrita em [`prompt/Estructure.md`](prompt/Estructure.md).
+
+## Stack
+
+- **Laravel 13** (PHP 8.3+)
+- **MySQL** para persistencia, com suporte planejado ao tipo nativo `VECTOR` do MySQL 9 (`VECTOR_DISTANCE`, `VECTOR_FROM_TEXT`) e fallback automatico em JSON + calculo de distancia cosseno em PHP para versoes anteriores do MySQL ou outros drivers (ex.: sqlite em testes)
+- **openai-php/client** para chat completions, embeddings e visao (OCR de prints)
+- **Vue 3 + Vite** no front-end (`resources/js`)
+
+## Arquitetura do Agente de IA
+
+```
+app/
+├── AI/                              # Ecossistema de IA (orquestracao, prompts e tools)
+│   ├── Agents/
+│   │   └── SupportAgent.php         # Orquestrador do loop do agente (o "cerebro")
+│   ├── Embeddings/
+│   │   └── OpenAIEmbeddingClient.php # Gera embeddings (text-embedding-3-*)
+│   ├── PromptTemplates/
+│   │   └── SupportPrompt.php        # Monta o System Prompt (AgenteIA.md + contexto RAG)
+│   └── Tools/
+│       ├── ToolInterface.php / BaseTool.php
+│       ├── WebSearchTool.php        # Busca externa (Nivel 2), apenas com consentimento
+│       └── SefazCheckerTool.php     # Exemplo de tool futura de consulta SEFAZ
+├── Services/
+│   ├── AI/
+│   │   ├── AiServiceInterface.php   # Contrato de chat completion + function calling
+│   │   ├── AiChatResponse.php       # DTO da resposta normalizada do provider
+│   │   ├── OpenIAService.php        # Implementacao via OpenAI Chat Completions
+│   │   └── PromptManager.php        # Monta o array de mensagens (system + historico)
+│   ├── Search/
+│   │   ├── VectorSearchService.php  # RAG Nivel 1: busca vetorial na base interna
+│   │   └── WebSearchService.php     # RAG Nivel 2: pesquisa externa via OpenAI
+│   └── Vision/
+│       └── OCRService.php           # Extrai texto de prints/screenshots (Vision)
+├── Http/
+│   ├── Controllers/Api/
+│   │   └── ChatController.php       # Endpoints REST do chat
+│   └── Requests/
+│       ├── ChatStoreRequest.php
+│       └── ChatMessageRequest.php
+└── Models/
+    ├── Chat.php                     # Conversa (software, status, historico)
+    ├── ChatMessage.php              # Mensagem individual (user, assistant, tool, system)
+    └── KnowledgeBase.php            # Documentos de solucao com embedding vetorial
+```
+
+### Fluxo de resolucao (`SupportAgent`)
+
+1. **Coleta**: a mensagem do usuario (e o texto extraido via OCR, se houver imagem) e persistida como `ChatMessage`.
+2. **Busca interna (RAG - Nivel 1)**: o `VectorSearchService` gera o embedding da mensagem e busca os documentos mais similares em `knowledge_bases`, filtrados por software (Home/Stella).
+3. **Resposta com contexto**: se houver documentos relevantes, o `SupportPrompt` injeta esse contexto no system prompt e a resposta e gerada pela `OpenIAService`.
+4. **Sem resultado interno**: se nada for encontrado, o agente responde pedindo consentimento explicito para pesquisa externa, conforme definido em `prompt/AgenteIA.md`.
+5. **Busca externa (Nivel 2)**: com consentimento, o `WebSearchTool` e disponibilizado ao modelo via function calling e aciona o `WebSearchService`.
+6. **Recusa**: se o usuario recusar a busca externa, o atendimento e encerrado com a mensagem padrao.
+
+## Endpoints da API
+
+| Metodo | Rota                        | Descricao                                   |
+|--------|------------------------------|----------------------------------------------|
+| GET    | `/api/chats`                 | Lista as conversas                            |
+| POST   | `/api/chats`                 | Cria uma nova conversa (`software`, `title`)  |
+| GET    | `/api/chats/{chat}`          | Detalhes de uma conversa com o historico      |
+| POST   | `/api/chats/{chat}/messages` | Envia mensagem/imagem e recebe a resposta do agente |
+| DELETE | `/api/chats/{chat}`          | Exclui uma conversa e todas as suas mensagens |
+| GET    | `/api/knowledge-bases`       | Lista os documentos da base de conhecimento   |
+| POST   | `/api/knowledge-bases`       | Faz upload e indexa um documento (PDF, Word, TXT) |
+| DELETE | `/api/knowledge-bases/{id}`  | Exclui um documento da base de conhecimento   |
+
+O envio de mensagem aceita `message` (texto), `image` (print, opcional), `external_search_consent` e `external_search_declined` (booleanos, usados no fluxo de consentimento da busca externa).
+
+O upload de documentos aceita `software` (home/stella), `title` e `file` (PDF, DOC, DOCX ou TXT). O texto e extraido automaticamente e indexado com embeddings OpenAI para uso no RAG (Nivel 1).
+
+## Configuracao
+
+1. Copie o arquivo de ambiente e gere a chave da aplicacao:
+
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+2. Configure a conexao com o MySQL (`DB_*`) e as credenciais da OpenAI no `.env`:
+
+   ```dotenv
+   OPENAI_API_KEY=
+   OPENAI_MODEL=gpt-4o
+   OPENAI_VISION_MODEL=gpt-4o
+   OPENAI_EMBEDDINGS_MODEL=text-embedding-3-small
+   OPENAI_EMBEDDINGS_DIMENSIONS=1536
+   ```
+
+3. Instale as dependencias e rode as migrations:
+
+   ```bash
+   composer install
+   npm install
+   php artisan migrate
+   ```
+
+4. Suba o ambiente de desenvolvimento (servidor, queue, logs e Vite):
+
+   ```bash
+   composer dev
+   ```
+
+## Testes
+
+O projeto usa [Pest](https://pestphp.com/):
+
+```bash
+composer test
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
@@ -56,3 +174,5 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+

@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('chat_messages', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('chat_id')->constrained()->cascadeOnDelete();
+            $table->string('role')->default('user')->comment('user, assistant, tool, system');
+            $table->longText('content');
+            $table->json('metadata')->nullable()->comment('tool calls, sources, image path, etc.');
             $table->timestamps();
         });
     }

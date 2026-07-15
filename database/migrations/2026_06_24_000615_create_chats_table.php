@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('chats', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('software')->nullable()->comment('home or stella');
+            $table->string('title')->nullable();
+            $table->string('status')->default('open');
             $table->timestamps();
         });
     }
