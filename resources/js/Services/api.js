@@ -63,6 +63,20 @@ export const chatApi = {
             })
             .then((response) => response.data);
     },
+
+    /**
+     * Deletes a chat.
+     */
+    delete(chatId) {
+        return http.delete(`/chats/${chatId}`).then((response) => response.data);
+    },
+
+    /**
+     * Exports a chat to PDF and stores it as a document.
+     */
+    exportPdf(chatId, documentName) {
+        return http.post(`/chats/${chatId}/export-pdf`, { name: documentName }).then((response) => response.data);
+    },
 };
 
 export const knowledgeBaseApi = {
@@ -94,6 +108,29 @@ export const knowledgeBaseApi = {
      */
     delete(documentId) {
         return http.delete(`/knowledge-bases/${documentId}`).then((response) => response.data);
+    },
+};
+
+export const documentApi = {
+    /**
+     * Lists all exported documents.
+     */
+    list() {
+        return http.get('/documents').then((response) => response.data);
+    },
+
+    /**
+     * Downloads a document.
+     */
+    download(documentId) {
+        return http.get(`/documents/${documentId}/download`, { responseType: 'blob' });
+    },
+
+    /**
+     * Deletes a document.
+     */
+    delete(documentId) {
+        return http.delete(`/documents/${documentId}`).then((response) => response.data);
     },
 };
 

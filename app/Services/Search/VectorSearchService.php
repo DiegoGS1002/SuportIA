@@ -39,8 +39,13 @@ final readonly class VectorSearchService
 
         return array_values(array_filter(
             $results,
-            fn (array $result): bool => $result['distance'] <= $this->maxDistance,
+            fn (array $result): bool => $result['distance'] <= $this->maxDistance && $this->isValidResult($result),
         ));
+    }
+
+    private function isValidResult(array $result): bool
+    {
+        return !empty(trim($result['content'])) && strlen(trim($result['content'])) > 10;
     }
 
     /**

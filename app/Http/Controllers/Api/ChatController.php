@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ChatMessageRequest;
 use App\Http\Requests\ChatStoreRequest;
 use App\Models\Chat;
+use App\Services\ChatToPdfExporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -83,5 +84,32 @@ class ChatController extends Controller
         $chat->delete();
 
         return response()->json(['message' => 'Conversa excluida com sucesso.']);
+    }
+
+    /**
+     * Exports a conversation to PDF and stores it as a document.
+     */
+    public function exportPdf(Request $request, Chat $chat, ChatToPdfExporter $exporter): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        try {
+            $document = $exporter->export(
+                $chat,
+                $validated['name'],
+                $request->user()?->id
+            );
+
+            return response()->json([
+                'message' => 'Documento exportado com sucesso.',
+                'document' => $document,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erro ao exportar documento: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

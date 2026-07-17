@@ -21,6 +21,15 @@
 
             <div class="flex gap-2">
                 <button
+                    v-if="currentChat"
+                    type="button"
+                    title="Ações"
+                    class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                    @click="showActionsModal = true"
+                >
+                    ⋮
+                </button>
+                <button
                     type="button"
                     class="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-semibold text-brand-600 transition hover:bg-brand-50"
                     @click="newChat('home')"
@@ -36,6 +45,14 @@
                 </button>
             </div>
         </header>
+
+        <!-- Chat Actions Modal -->
+        <ChatActionsModal
+            :is-open="showActionsModal"
+            @close="showActionsModal = false"
+            @export-pdf="handleExportPdf"
+            @delete="handleDeleteChat"
+        />
 
         <div class="flex flex-1 overflow-hidden">
             <!-- Conversations list -->
@@ -105,9 +122,10 @@
 </template>
 
 <script setup>
-import { onMounted, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ChatWindow from '../Components/Chat/ChatWindow.vue';
+import ChatActionsModal from '../Components/Chat/ChatActionsModal.vue';
 import { useChat } from '../Composables/useChat.js';
 
 const props = defineProps({
@@ -119,6 +137,7 @@ const props = defineProps({
 
 const route = useRoute();
 const router = useRouter();
+const showActionsModal = ref(false);
 
 const {
     chats,
@@ -136,6 +155,7 @@ const {
     authorizeExternalSearch,
     declineExternalSearch,
     deleteChat,
+    exportChatToPdf,
 } = useChat();
 
 function softwareLabel(software) {
@@ -158,13 +178,22 @@ async function onSend(text) {
     await sendMessage(text);
 }
 
-async function confirmDelete() {
+async function handleDeleteChat() {
     if (!currentChat.value) return;
 
-    if (confirm('Tem certeza que deseja excluir esta conversa? Esta acao nao pode ser desfeita.')) {
-        const chatId = currentChat.value.id;
-        await deleteChat(chatId);
-        await router.push({ name: 'chat' });
+    const chatId = currentChat.value.id;
+    await deleteChat(chatId);
+    await router.push({ name: 'chat' });
+}
+
+async function handleExportPdf(documentName) {
+    if (!currentChat.value) return;
+
+    try {
+        await exportChatToPdf(currentChat.value.id, documentName);
+        alert('Documento exportado com sucesso! Verifique na página Documentos.');
+    } catch (error) {
+        alert('Erro ao exportar documento: ' + error.message);
     }
 }
 

@@ -78,3 +78,43 @@
         </div>
     </aside>
 </template>
+
+<script setup>
+import { useRoute } from 'vue-router';
+import { computed } from 'vue';
+import HomeIcon from '../Icons/HomeIcon.vue';
+import ChatIcon from '../Icons/ChatIcon.vue';
+import DocumentsIcon from '../Icons/DocumentsIcon.vue';
+
+const route = useRoute();
+
+const navItems = [
+    {
+        name: 'home',
+        label: 'Inicio',
+        to: '/',
+        icon: HomeIcon,
+    },
+    {
+        name: 'chat',
+        label: 'Chat',
+        to: '/chat',
+        icon: ChatIcon,
+    },
+    {
+        name: 'documentos',
+        label: 'Documentos',
+        to: '/documentos',
+        icon: DocumentsIcon,
+    },
+];
+
+const isActive = (item) => {
+    if (item.name === 'home') {
+        return route.path === '/';
+    }
+    return route.path.startsWith('/' + item.name);
+};
+</script>
+
+

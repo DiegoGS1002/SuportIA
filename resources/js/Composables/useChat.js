@@ -142,6 +142,16 @@ export function useChat() {
         }
     }
 
+    async function exportChatToPdf(chatId, documentName) {
+        try {
+            await chatApi.exportPdf(chatId, documentName);
+            return true;
+        } catch (err) {
+            error.value = 'Nao foi possivel exportar a conversa.';
+            throw err;
+        }
+    }
+
     return {
         chats,
         currentChat,
@@ -160,6 +170,7 @@ export function useChat() {
         authorizeExternalSearch,
         declineExternalSearch,
         deleteChat,
+        exportChatToPdf,
     };
 }
 
