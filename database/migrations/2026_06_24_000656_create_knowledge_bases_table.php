@@ -19,6 +19,7 @@ return new class extends Migration
     {
         Schema::create('knowledge_bases', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('document_id')->constrained()->cascadeOnDelete(); // Adicionado foreign key para documents
             $table->string('software')->index()->comment('home or stella');
             $table->string('title');
             $table->longText('content');

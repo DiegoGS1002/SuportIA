@@ -210,7 +210,7 @@
                     </div>
 
                     <div class="mb-6">
-                        <label class="mb-1 block text-sm font-medium text-slate-700">Arquivo (PDF, Word, TXT)</label>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Arquivo (PDF, DOCX, TXT)</label>
                         <input
                             type="file"
                             accept=".pdf,.doc,.docx,.txt"
