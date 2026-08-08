@@ -10,6 +10,7 @@ use App\Services\AI\AiServiceInterface;
 use App\Services\AI\OpenIAService;
 use App\Services\AI\PromptManager;
 use App\Services\Search\VectorSearchService;
+use App\Services\Search\VectorTypeDetector;
 use App\Services\Search\WebSearchService;
 use App\Services\Vision\OCRService;
 use Illuminate\Support\ServiceProvider;
@@ -68,6 +69,7 @@ class AIServiceProvider extends ServiceProvider
         $this->app->singleton(VectorSearchService::class, function ($app): VectorSearchService {
             return new VectorSearchService(
                 embeddingClient: $app->make(OpenAIEmbeddingClient::class),
+                vectorTypeDetector: $app->make(VectorTypeDetector::class),
             );
         });
 

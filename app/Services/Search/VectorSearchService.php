@@ -4,7 +4,6 @@ namespace App\Services\Search;
 
 use App\AI\Embeddings\OpenAIEmbeddingClient;
 use App\Models\KnowledgeBase;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\LazyCollection;
 
@@ -12,14 +11,17 @@ use Illuminate\Support\LazyCollection;
  * RAG Level 1: Retrieval Augmented Generation over the internal
  * knowledge base (guides, trainings, support history).
  *
- * Uses MySQL 9's native VECTOR_DISTANCE() function when available,
- * falling back to an in-PHP cosine similarity computation for other
- * database drivers (e.g. sqlite for local development/testing).
+ * Uses MySQL's native VECTOR_DISTANCE() function when available (Enterprise/
+ * HeatWave), falling back to an in-PHP cosine similarity computation for
+ * other database drivers/editions (e.g. sqlite for local development/testing,
+ * or MySQL Community Server which stores VECTOR columns but doesn't ship
+ * VECTOR_DISTANCE()).
  */
 final readonly class VectorSearchService
 {
     public function __construct(
         private OpenAIEmbeddingClient $embeddingClient,
+        private VectorTypeDetector $vectorTypeDetector,
         private int $topK = 3,
         private float $maxDistance = 0.35,
     ) {}
@@ -33,7 +35,7 @@ final readonly class VectorSearchService
     {
         $embedding = $this->embeddingClient->embed($query);
 
-        $results = $this->supportsNativeVectorSearch()
+        $results = $this->vectorTypeDetector->supportsNativeDistance()
             ? $this->searchWithMySqlVector($embedding, $software)
             : $this->searchWithPhpFallback($embedding, $software);
 
@@ -49,29 +51,6 @@ final readonly class VectorSearchService
     }
 
     /**
-     * MySQL 9 introduced the VECTOR type and VECTOR_DISTANCE()/VECTOR_FROM_TEXT()
-     * functions. Older MySQL versions (or other drivers, e.g. sqlite) don't
-     * support them, so we attempt the native query first and gracefully fall
-     * back to a pure-PHP cosine similarity computation if it fails.
-     */
-    private function supportsNativeVectorSearch(): bool
-    {
-        if (DB::connection()->getDriverName() !== 'mysql') {
-            return false;
-        }
-
-        return Cache::remember('mysql_supports_vector_type', now()->addHour(), function (): bool {
-            try {
-                DB::selectOne("SELECT VECTOR_FROM_TEXT('[1,2,3]') AS v");
-
-                return true;
-            } catch (\Throwable) {
-                return false;
-            }
-        });
-    }
-
-    /**
      * @param  array<int, float>  $embedding
      * @return array<int, array{id: int, title: string, content: string, distance: float}>
      */
@@ -81,7 +60,7 @@ final readonly class VectorSearchService
 
         $query = DB::table('knowledge_bases')
             ->select('id', 'title', 'content')
-            ->selectRaw('VECTOR_DISTANCE(embedding, VECTOR_FROM_TEXT(?), \'cosine\') AS distance', [$embeddingJson])
+            ->selectRaw('VECTOR_DISTANCE(embedding, STRING_TO_VECTOR(?), \'cosine\') AS distance', [$embeddingJson])
             ->whereNotNull('embedding');
 
         if ($software !== null) {
@@ -102,18 +81,29 @@ final readonly class VectorSearchService
     }
 
     /**
-     * Pure-PHP cosine distance fallback, used when the database driver
-     * does not support native vector operations (e.g. sqlite).
+     * Pure-PHP cosine distance fallback, used when the database driver or
+     * MySQL edition does not support VECTOR_DISTANCE(). When the column
+     * uses the native VECTOR type, VECTOR_TO_STRING() converts it to a
+     * JSON-compatible textual representation the model's `array` cast can
+     * decode; otherwise the column already stores plain JSON.
      *
      * @param  array<int, float>  $embedding
      * @return array<int, array{id: int, title: string, content: string, distance: float}>
      */
     private function searchWithPhpFallback(array $embedding, ?string $software): array
     {
-        $documents = KnowledgeBase::query()
+        $query = KnowledgeBase::query()
             ->whereNotNull('embedding')
-            ->when($software !== null, fn ($query) => $query->where('software', $software))
-            ->get(['id', 'title', 'content', 'embedding']);
+            ->when($software !== null, fn ($query) => $query->where('software', $software));
+
+        if ($this->vectorTypeDetector->supportsNativeType()) {
+            $query->select(['id', 'title', 'content'])
+                ->selectRaw('VECTOR_TO_STRING(embedding) AS embedding');
+        } else {
+            $query->select(['id', 'title', 'content', 'embedding']);
+        }
+
+        $documents = $query->get();
 
         return LazyCollection::make($documents)
             ->map(function (KnowledgeBase $document) use ($embedding) {

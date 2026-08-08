@@ -8,6 +8,7 @@ use App\Http\Requests\KnowledgeBaseStoreRequest;
 use App\Models\Document;
 use App\Models\KnowledgeBase;
 use App\Services\DocumentProcessor;
+use App\Services\Search\EmbeddingWriter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -34,7 +35,7 @@ class KnowledgeBaseController extends Controller
         return response()->json($documents);
     }
 
-    public function store(KnowledgeBaseStoreRequest $request): JsonResponse
+    public function store(KnowledgeBaseStoreRequest $request, EmbeddingWriter $embeddingWriter): JsonResponse
     {
         try {
             $uploadedFile = $request->file('file');
@@ -68,13 +69,14 @@ class KnowledgeBaseController extends Controller
             foreach ($chunks as $index => $chunk) {
                 $embedding = $this->embeddingClient->embed($chunk);
 
-                KnowledgeBase::create([
+                $knowledgeBase = KnowledgeBase::create([
                     'document_id' => $document->id,
                     'software' => $software,
                     'title' => $title . ' (Parte ' . ($index + 1) . ')',
                     'content' => $chunk,
-                    'embedding' => $embedding,
                 ]);
+
+                $embeddingWriter->store($knowledgeBase->id, $embedding);
             }
 
             return response()->json([
