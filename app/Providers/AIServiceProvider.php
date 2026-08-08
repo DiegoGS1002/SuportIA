@@ -70,6 +70,8 @@ class AIServiceProvider extends ServiceProvider
             return new VectorSearchService(
                 embeddingClient: $app->make(OpenAIEmbeddingClient::class),
                 vectorTypeDetector: $app->make(VectorTypeDetector::class),
+                topK: (int) config('services.openai.rag_top_k'),
+                maxDistance: (float) config('services.openai.rag_max_distance'),
             );
         });
 

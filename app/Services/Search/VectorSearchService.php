@@ -23,7 +23,7 @@ final readonly class VectorSearchService
         private OpenAIEmbeddingClient $embeddingClient,
         private VectorTypeDetector $vectorTypeDetector,
         private int $topK = 3,
-        private float $maxDistance = 0.35,
+        private float $maxDistance = 0.6,
     ) {}
 
     /**
