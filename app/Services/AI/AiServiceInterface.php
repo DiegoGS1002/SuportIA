@@ -18,4 +18,3 @@ interface AiServiceInterface
      */
     public function complete(array $messages, array $tools = []): AiChatResponse;
 }
-

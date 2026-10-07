@@ -49,4 +49,3 @@ final class SefazCheckerTool extends BaseTool
             : "Consulta de status SEFAZ ({$uf}) ainda nao esta disponivel nesta instalacao.";
     }
 }
-

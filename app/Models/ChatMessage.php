@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['chat_id', 'role', 'content', 'metadata'])]
+#[Fillable(['chat_id', 'role', 'content', 'status', 'idempotency_key', 'attachment_document_id', 'metadata'])]
 class ChatMessage extends Model
 {
     public const string ROLE_USER = 'user';
@@ -33,5 +33,10 @@ class ChatMessage extends Model
     public function chat(): BelongsTo
     {
         return $this->belongsTo(Chat::class);
+    }
+
+    public function attachment(): BelongsTo
+    {
+        return $this->belongsTo(Document::class, 'attachment_document_id');
     }
 }

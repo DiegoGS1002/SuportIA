@@ -36,7 +36,7 @@ final class VectorTypeDetector
 
     public function supportsNativeDistance(): bool
     {
-        if (!$this->supportsNativeType()) {
+        if (! $this->supportsNativeType()) {
             return false;
         }
 

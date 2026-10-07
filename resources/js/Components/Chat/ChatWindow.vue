@@ -35,6 +35,7 @@
         <!-- Composer -->
         <div class="border-t border-slate-100 bg-header-bg px-8 py-4">
             <ImagePreview v-if="pendingImage" class="mb-3" :file="pendingImage" @remove="$emit('remove-image')" />
+            <p v-if="validationError || error" class="mb-3 text-sm text-red-600">{{ validationError || error }}</p>
 
             <form class="flex items-end gap-3" @submit.prevent="submit">
                 <button
@@ -51,7 +52,7 @@
                         />
                     </svg>
                 </button>
-                <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFileChange" />
+                <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onFileChange" />
 
                 <textarea
                     v-model="draft"
@@ -90,6 +91,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    error: {
+        type: String,
+        default: null,
+    },
     pendingImage: {
         type: File,
         default: null,
@@ -104,12 +109,25 @@ const emit = defineEmits(['send', 'select-image', 'remove-image', 'authorize-sea
 
 const draft = ref('');
 const scrollArea = ref(null);
+const validationError = ref('');
+const pendingClientMessageId = ref(null);
+
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 function onFileChange(event) {
     const file = event.target.files?.[0];
 
     if (file) {
-        emit('select-image', file);
+        validationError.value = '';
+
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            validationError.value = 'Formato invalido. Envie PNG, JPEG ou WebP.';
+        } else if (file.size > MAX_IMAGE_SIZE) {
+            validationError.value = 'A imagem deve ter no maximo 10 MB.';
+        } else {
+            emit('select-image', file);
+        }
     }
 
     event.target.value = '';
@@ -120,8 +138,19 @@ function submit() {
         return;
     }
 
-    emit('send', draft.value.trim());
-    draft.value = '';
+    pendingClientMessageId.value ??= crypto.randomUUID();
+    emit('send', {
+        text: draft.value.trim(),
+        clientMessageId: pendingClientMessageId.value,
+        onSuccess: () => {
+            draft.value = '';
+            pendingClientMessageId.value = null;
+            validationError.value = '';
+        },
+        onError: () => {
+            validationError.value = 'Falha no envio. Sua mensagem foi preservada; tente novamente.';
+        },
+    });
 }
 
 function scrollToBottom() {
@@ -134,4 +163,3 @@ function scrollToBottom() {
 
 watch(() => props.messages.length, scrollToBottom);
 </script>
-

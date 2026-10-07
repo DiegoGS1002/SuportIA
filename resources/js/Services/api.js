@@ -10,6 +10,29 @@ const http = axios.create({
     },
 });
 
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+if (csrfToken) {
+    http.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+}
+
+export const authApi = {
+    setupStatus() {
+        return http.get('/setup/status').then((response) => response.data);
+    },
+    setup(payload) {
+        return http.post('/setup', payload).then((response) => response.data);
+    },
+    login(credentials) {
+        return http.post('/login', credentials).then((response) => response.data);
+    },
+    user() {
+        return http.get('/auth/user').then((response) => response.data);
+    },
+    logout() {
+        return http.post('/logout').then((response) => response.data);
+    },
+};
+
 export const chatApi = {
     /**
      * Lists the existing conversations.
@@ -38,7 +61,7 @@ export const chatApi = {
      * @param {number|string} chatId
      * @param {{ message?: string, image?: File|null, externalSearchConsent?: boolean, externalSearchDeclined?: boolean }} payload
      */
-    sendMessage(chatId, { message = '', image = null, externalSearchConsent = false, externalSearchDeclined = false } = {}) {
+    sendMessage(chatId, { message = '', image = null, externalSearchConsent = false, externalSearchDeclined = false, clientMessageId = null } = {}) {
         const formData = new FormData();
 
         if (message) {
@@ -55,6 +78,10 @@ export const chatApi = {
 
         if (externalSearchDeclined) {
             formData.append('external_search_declined', '1');
+        }
+
+        if (clientMessageId) {
+            formData.append('client_message_id', clientMessageId);
         }
 
         return http
@@ -109,6 +136,9 @@ export const knowledgeBaseApi = {
     delete(documentId) {
         return http.delete(`/knowledge-bases/${documentId}`).then((response) => response.data);
     },
+    retry(documentId) {
+        return http.post(`/knowledge-bases/${documentId}/retry`).then((response) => response.data);
+    },
 };
 
 export const documentApi = {
@@ -135,4 +165,3 @@ export const documentApi = {
 };
 
 export default http;
-

@@ -25,4 +25,3 @@ abstract class BaseTool implements ToolInterface
         ];
     }
 }
-

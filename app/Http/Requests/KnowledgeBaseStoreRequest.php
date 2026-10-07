@@ -20,10 +20,10 @@ class KnowledgeBaseStoreRequest extends FormRequest
             'file' => [
                 'required',
                 'file',
-                'mimes:pdf,doc,docx,txt',
-                'max:102400',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown',
+                'extensions:pdf,docx,txt,md',
+                'max:20480',
             ],
         ];
     }
 }
-

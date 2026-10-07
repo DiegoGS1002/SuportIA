@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule; // Add this line
+use Illuminate\Validation\Rule;
 
 class ChatMessageRequest extends FormRequest
 {
@@ -22,14 +22,24 @@ class ChatMessageRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:8000',
-                // Make message required only if no image is uploaded AND external_search_consent is not true
                 Rule::requiredIf(function () {
-                    return ! $this->hasFile('image') && ! $this->boolean('external_search_consent');
+                    return ! $this->hasFile('image')
+                        && ! $this->boolean('external_search_consent')
+                        && ! $this->boolean('external_search_declined');
                 }),
             ],
-            'image' => ['nullable', 'image', 'max:10240'],
-            'external_search_consent' => ['sometimes', 'boolean'],
-            'external_search_declined' => ['sometimes', 'boolean'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            'external_search_consent' => [
+                'sometimes',
+                'boolean',
+                Rule::prohibitedIf(fn () => $this->boolean('external_search_declined')),
+            ],
+            'external_search_declined' => [
+                'sometimes',
+                'boolean',
+                Rule::prohibitedIf(fn () => $this->boolean('external_search_consent')),
+            ],
+            'client_message_id' => ['nullable', 'uuid'],
         ];
     }
 }

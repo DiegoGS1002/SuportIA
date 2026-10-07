@@ -85,6 +85,14 @@
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-slate-400">{{ formatDate(document.created_at) }}</span>
                             <button
+                                v-if="['failed', 'needs_ocr'].includes(document.status)"
+                                type="button"
+                                class="rounded-lg px-2 py-1 text-xs text-brand-600 hover:bg-brand-50"
+                                @click="retryDocument(document)"
+                            >
+                                Tentar novamente
+                            </button>
+                            <button
                                 type="button"
                                 class="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
                                 title="Excluir documento"
@@ -101,7 +109,12 @@
                         </div>
                     </div>
                     <h2 class="mb-1 text-sm font-semibold text-navy-900">{{ document.title }}</h2>
-                    <p class="line-clamp-3 text-sm text-slate-500">{{ document.content }}</p>
+                    <p class="text-sm text-slate-500">{{ document.name }}</p>
+                    <p class="mt-2 text-xs" :class="statusClass(document.status)">
+                        {{ statusLabel(document.status) }}
+                        <span v-if="document.chunks_count"> · {{ document.chunks_count }} partes</span>
+                    </p>
+                    <p v-if="document.error_message" class="mt-1 text-xs text-red-600">{{ document.error_message }}</p>
                 </article>
             </div>
             </div>
@@ -142,7 +155,7 @@
                                     type="button"
                                     title="Baixar documento"
                                     class="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-                                    @click="downloadExportedDocument(document.id)"
+                                    @click="downloadExportedDocument(document)"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
                                         <path
@@ -210,10 +223,10 @@
                     </div>
 
                     <div class="mb-6">
-                        <label class="mb-1 block text-sm font-medium text-slate-700">Arquivo (PDF, DOCX, TXT)</label>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Arquivo (PDF, DOCX, TXT, MD — até 20 MB)</label>
                         <input
                             type="file"
-                            accept=".pdf,.doc,.docx,.txt"
+                            accept=".pdf,.docx,.txt,.md"
                             required
                             class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:ring-2 focus:ring-brand-100 focus:outline-none"
                             @change="onFileSelect"
@@ -231,7 +244,7 @@
                         </button>
                         <button
                             type="submit"
-                            :disabled="uploading"
+                            :disabled="uploading || !uploadForm.file"
                             class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
                         >
                             {{ uploading ? 'Enviando...' : 'Adicionar' }}
@@ -244,7 +257,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, onUnmounted, reactive, ref } from 'vue';
 import { knowledgeBaseApi, documentApi } from '../Services/api.js';
 
 const documents = ref([]);
@@ -263,6 +276,7 @@ const uploadForm = reactive({
 });
 
 const fileValidationError = ref('');
+let refreshTimer = null;
 
 const filters = [
     { label: 'Todos', value: null },
@@ -272,12 +286,12 @@ const filters = [
 
 const ALLOWED_TYPES = {
     'application/pdf': '.pdf',
-    'application/msword': '.doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
     'text/plain': '.txt',
+    'text/markdown': '.md',
 };
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 function formatDate(value) {
     if (!value) {
@@ -295,6 +309,22 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
+function statusLabel(status) {
+    return {
+        uploaded: 'Aguardando processamento',
+        processing: 'Processando...',
+        indexed: 'Indexado',
+        needs_ocr: 'OCR necessario ou sem texto legivel',
+        failed: 'Falha no processamento',
+    }[status] || status;
+}
+
+function statusClass(status) {
+    if (status === 'indexed') return 'text-green-600';
+    if (status === 'failed' || status === 'needs_ocr') return 'text-red-600';
+    return 'text-amber-600';
+}
+
 function validateFile(file) {
     fileValidationError.value = '';
 
@@ -310,8 +340,8 @@ function validateFile(file) {
 
     if (!Object.keys(ALLOWED_TYPES).includes(file.type)) {
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
-            fileValidationError.value = 'Formato inválido. Aceitos: PDF, DOC, DOCX, TXT';
+        if (!['pdf', 'docx', 'txt', 'md'].includes(ext)) {
+            fileValidationError.value = 'Formato inválido. Aceitos: PDF, DOCX, TXT, MD';
             return false;
         }
     }
@@ -405,13 +435,22 @@ async function confirmDelete(document) {
     }
 }
 
-async function downloadExportedDocument(documentId) {
+async function retryDocument(document) {
     try {
-        const response = await documentApi.download(documentId);
+        await knowledgeBaseApi.retry(document.id);
+        await loadKnowledgeBase();
+    } catch (err) {
+        alert(err.response?.data?.message || 'Erro ao reenviar documento.');
+    }
+}
+
+async function downloadExportedDocument(document) {
+    try {
+        const response = await documentApi.download(document.id);
         const url = window.URL.createObjectURL(response.data);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `documento-${documentId}.pdf`;
+        a.download = document.name;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -435,8 +474,13 @@ async function confirmDeleteExported(document) {
 async function init() {
     await loadKnowledgeBase();
     await loadExportedDocuments();
+    refreshTimer = window.setInterval(() => {
+        if (documents.value.some((document) => ['uploaded', 'processing'].includes(document.status))) {
+            loadKnowledgeBase();
+        }
+    }, 5000);
 }
 
 onMounted(init);
+onUnmounted(() => window.clearInterval(refreshTimer));
 </script>
-

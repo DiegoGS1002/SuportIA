@@ -2,6 +2,7 @@
 
 namespace App\AI\Tools;
 
+use App\Services\Search\WebSearchResult;
 use App\Services\Search\WebSearchService;
 
 /**
@@ -42,16 +43,14 @@ final class WebSearchTool extends BaseTool
         ];
     }
 
-    public function handle(array $arguments): string
+    public function handle(array $arguments): WebSearchResult
     {
         $query = (string) ($arguments['query'] ?? '');
 
         if (trim($query) === '') {
-            return 'Nao foi possivel realizar a busca externa: consulta vazia.';
+            return new WebSearchResult('Nao foi possivel realizar a busca externa: consulta vazia.');
         }
 
         return $this->webSearchService->search($query);
     }
 }
-
-

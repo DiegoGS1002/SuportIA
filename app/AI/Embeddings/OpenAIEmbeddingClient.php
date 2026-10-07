@@ -64,5 +64,3 @@ final readonly class OpenAIEmbeddingClient
         return array_map(fn ($item) => $item->embedding, $response->embeddings);
     }
 }
-
-

@@ -80,4 +80,3 @@ final class SupportPrompt
             implode("\n\n", $items);
     }
 }
-

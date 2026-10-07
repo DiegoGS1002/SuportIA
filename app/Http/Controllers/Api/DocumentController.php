@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
 {
@@ -15,7 +16,8 @@ class DocumentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $documents = Document::query()
-            ->when($request->user(), fn ($query) => $query->where('user_id', $request->user()->id))
+            ->where('user_id', $request->user()->id)
+            ->where('type', Document::TYPE_CHAT_EXPORT)
             ->latest()
             ->get();
 
@@ -25,36 +27,29 @@ class DocumentController extends Controller
     /**
      * Download a document.
      */
-    public function download(Document $document)
+    public function download(Request $request, Document $document)
     {
-        // Verificar permissão
-        if ($document->user_id && $document->user_id !== auth()->id()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        abort_unless($document->user_id === $request->user()->id, 404);
 
-        return response()->download(
-            storage_path('app/public/' . $document->file_path),
-            $document->name . '.pdf'
+        abort_unless(Storage::disk($document->disk)->exists($document->file_path), 404);
+
+        return Storage::disk($document->disk)->download(
+            $document->file_path,
+            $document->name,
+            ['Content-Type' => $document->mime_type ?? 'application/octet-stream'],
         );
     }
 
     /**
      * Delete a document.
      */
-    public function destroy(Document $document): JsonResponse
+    public function destroy(Request $request, Document $document): JsonResponse
     {
-        // Verificar permissão
-        if ($document->user_id && $document->user_id !== auth()->id()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        abort_unless($document->user_id === $request->user()->id, 404);
 
-        // Deletar arquivo
-        \Storage::disk('public')->delete($document->file_path);
-
-        // Deletar registro
+        Storage::disk($document->disk)->delete($document->file_path);
         $document->delete();
 
         return response()->json(['message' => 'Documento excluído com sucesso.']);
     }
 }
-

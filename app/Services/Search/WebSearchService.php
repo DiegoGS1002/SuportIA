@@ -5,10 +5,7 @@ namespace App\Services\Search;
 use OpenAI\Client;
 
 /**
- * Level 2 search: simulates an external "web search" by delegating the
- * query to the OpenAI Chat Completions API with a research-oriented
- * system prompt. This is only invoked after explicit user consent
- * (see App\AI\Tools\WebSearchTool and App\AI\Agents\SupportAgent).
+ * Level 2 search backed by OpenAI's web-search Chat Completions model.
  */
 final readonly class WebSearchService
 {
@@ -17,16 +14,18 @@ final readonly class WebSearchService
         private string $model,
     ) {}
 
-    public function search(string $query): string
+    public function search(string $query): WebSearchResult
     {
         $response = $this->client->chat()->create([
             'model' => $this->model,
+            'web_search_options' => [
+                'search_context_size' => 'medium',
+            ],
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => 'Voce e um pesquisador tecnico. Responda de forma objetiva, em Portugues, com passos '.
-                        'praticos e verificaveis para resolver o problema descrito, como se estivesse pesquisando na internet. '.
-                        'Se nao tiver certeza, deixe isso explicito.',
+                    'content' => 'Pesquise fontes tecnicas atuais e responda em Portugues com passos praticos e verificaveis. '.
+                        'Diferencie fatos encontrados de inferencias e preserve as citacoes retornadas pela pesquisa.',
                 ],
                 [
                     'role' => 'user',
@@ -35,8 +34,20 @@ final readonly class WebSearchService
             ],
         ]);
 
-        return $response->choices[0]->message->content
-            ?? 'Nao foi possivel obter uma resposta da pesquisa externa no momento.';
+        $message = $response->choices[0]->message;
+        $sources = [];
+
+        foreach ($message->annotations as $annotation) {
+            $citation = $annotation->urlCitations;
+            $sources[$citation->url] = [
+                'title' => $citation->title,
+                'url' => $citation->url,
+            ];
+        }
+
+        return new WebSearchResult(
+            content: $message->content ?? 'Nao foi possivel obter uma resposta da pesquisa externa no momento.',
+            sources: array_values($sources),
+        );
     }
 }
-

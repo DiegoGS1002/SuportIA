@@ -47,7 +47,7 @@ final readonly class VectorSearchService
 
     private function isValidResult(array $result): bool
     {
-        return !empty(trim($result['content'])) && strlen(trim($result['content'])) > 10;
+        return ! empty(trim($result['content'])) && strlen(trim($result['content'])) > 10;
     }
 
     /**
@@ -148,4 +148,3 @@ final readonly class VectorSearchService
         return 1.0 - $cosineSimilarity;
     }
 }
-

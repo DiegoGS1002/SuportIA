@@ -39,9 +39,9 @@
                             ></div>
 
                             <img
-                                src="/logo.png"
-                                alt="Nexora Agent IA"
-                                class="relative z-10 h-56 w-auto object-contain transition duration-500 hover:scale-[1.02]"
+                                src="/logo.png?v=20261006"
+                                alt="SuportIA"
+                                class="relative z-10 h-auto w-full max-w-2xl object-contain transition duration-500 hover:scale-[1.02]"
                             />
 
                         </div>
@@ -128,5 +128,4 @@
     </div>
 
 </template>
-
 

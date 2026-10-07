@@ -13,6 +13,10 @@ use Illuminate\Support\Collection;
  */
 final readonly class PromptManager
 {
+    private const int RECENT_MESSAGES_LIMIT = 20;
+
+    private const int SUMMARY_CHARACTERS_LIMIT = 8000;
+
     public function __construct(
         private SupportPrompt $supportPrompt,
     ) {}
@@ -31,7 +35,27 @@ final readonly class PromptManager
             ],
         ];
 
-        foreach ($history as $message) {
+        $eligibleHistory = $history
+            ->filter(fn (ChatMessage $message): bool => in_array(
+                $message->role,
+                [ChatMessage::ROLE_USER, ChatMessage::ROLE_ASSISTANT],
+                true,
+            ));
+
+        $olderMessages = $eligibleHistory->slice(0, -self::RECENT_MESSAGES_LIMIT);
+
+        if ($olderMessages->isNotEmpty()) {
+            $summary = $olderMessages
+                ->map(fn (ChatMessage $message): string => strtoupper($message->role).': '.$message->content)
+                ->implode("\n");
+
+            $messages[] = [
+                'role' => 'system',
+                'content' => "Resumo do historico anterior:\n".mb_substr($summary, -self::SUMMARY_CHARACTERS_LIMIT),
+            ];
+        }
+
+        foreach ($eligibleHistory->take(-self::RECENT_MESSAGES_LIMIT) as $message) {
             if (! in_array($message->role, [ChatMessage::ROLE_USER, ChatMessage::ROLE_ASSISTANT], true)) {
                 continue;
             }
@@ -45,4 +69,3 @@ final readonly class PromptManager
         return $messages;
     }
 }
-

@@ -88,7 +88,10 @@ export function useChat() {
         pendingImage.value = null;
     }
 
-    async function sendMessage(text, { externalSearchConsent = false, externalSearchDeclined = false } = {}) {
+    async function sendMessage(
+        text,
+        { externalSearchConsent = false, externalSearchDeclined = false, clientMessageId = crypto.randomUUID() } = {},
+    ) {
         if (!currentChat.value) {
             return null;
         }
@@ -106,6 +109,7 @@ export function useChat() {
                 image: pendingImage.value,
                 externalSearchConsent,
                 externalSearchDeclined,
+                clientMessageId,
             });
 
             currentChat.value = result.chat;
@@ -121,11 +125,11 @@ export function useChat() {
     }
 
     function authorizeExternalSearch() {
-        return sendMessage('', { externalSearchConsent: true });
+        return sendMessage('', { externalSearchConsent: true, clientMessageId: crypto.randomUUID() });
     }
 
     function declineExternalSearch() {
-        return sendMessage('', { externalSearchDeclined: true });
+        return sendMessage('', { externalSearchDeclined: true, clientMessageId: crypto.randomUUID() });
     }
 
     async function deleteChat(chatId) {
@@ -173,4 +177,3 @@ export function useChat() {
         exportChatToPdf,
     };
 }
-

@@ -49,7 +49,7 @@ class AIServiceProvider extends ServiceProvider
         $this->app->singleton(WebSearchService::class, function ($app): WebSearchService {
             return new WebSearchService(
                 client: $app->make(Client::class),
-                model: (string) config('services.openai.chat_model'),
+                model: (string) config('services.openai.web_search_model'),
             );
         });
 
@@ -88,4 +88,3 @@ class AIServiceProvider extends ServiceProvider
         //
     }
 }
-

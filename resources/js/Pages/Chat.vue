@@ -88,6 +88,7 @@
                     v-if="currentChat"
                     :messages="messages"
                     :sending="sending"
+                    :error="error"
                     :pending-image="pendingImage"
                     :awaiting-external-search-consent="awaitingExternalSearchConsent"
                     @send="onSend"
@@ -144,6 +145,7 @@ const {
     currentChat,
     messages,
     sending,
+    error,
     pendingImage,
     awaitingExternalSearchConsent,
     fetchChats,
@@ -174,8 +176,13 @@ async function newChat(software) {
     await fetchChats();
 }
 
-async function onSend(text) {
-    await sendMessage(text);
+async function onSend({ text, clientMessageId, onSuccess, onError }) {
+    try {
+        await sendMessage(text, { clientMessageId });
+        onSuccess();
+    } catch (exception) {
+        onError(exception);
+    }
 }
 
 async function handleDeleteChat() {
@@ -210,4 +217,3 @@ async function syncFromRoute() {
 watch(() => route.params.id, syncFromRoute);
 onMounted(syncFromRoute);
 </script>
-

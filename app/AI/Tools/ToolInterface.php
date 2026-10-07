@@ -27,10 +27,9 @@ interface ToolInterface
 
     /**
      * Executes the tool with the given (already decoded) arguments and
-     * returns a string result to be sent back to the model.
+     * returns a normalized result for the orchestrator.
      *
      * @param  array<string, mixed>  $arguments
      */
-    public function handle(array $arguments): string;
+    public function handle(array $arguments): mixed;
 }
-

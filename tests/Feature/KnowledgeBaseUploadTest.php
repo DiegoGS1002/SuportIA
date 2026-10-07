@@ -10,12 +10,13 @@ use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use OpenAI\Client;
 use OpenAI\Factory as OpenAIFactory;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    Storage::fake('public');
+    Storage::fake('local');
     $this->user = User::factory()->create();
     $this->actingAs($this->user);
 
@@ -39,7 +40,7 @@ beforeEach(function () {
         ->withHttpClient($guzzleClient)
         ->make();
 
-    $this->app->instance(\OpenAI\Client::class, $fakeOpenAiClient);
+    $this->app->instance(Client::class, $fakeOpenAiClient);
     $this->app->forgetInstance(OpenAIEmbeddingClient::class);
 });
 
@@ -53,8 +54,29 @@ describe('KnowledgeBase Upload', function () {
             'file' => $file,
         ]);
 
-        $response->assertStatus(201);
+        $response->assertAccepted();
         expect(Document::count())->toBe(1);
+        expect(Document::first()->status)->toBe('indexed');
+    });
+
+    it('can upload and index a markdown file', function () {
+        $file = UploadedFile::fake()->createWithContent(
+            'manual.md',
+            "# Solucao\n\nSiga estas etapas para corrigir o problema apresentado no sistema.",
+        );
+
+        $response = $this->postJson('/api/knowledge-bases', [
+            'software' => 'home',
+            'title' => 'Manual em Markdown',
+            'file' => $file,
+        ]);
+
+        $response->assertAccepted();
+
+        $document = Document::first();
+        expect($document->name)->toBe('manual.md');
+        expect($document->status)->toBe('indexed');
+        expect($document->chunks_count)->toBeGreaterThan(0);
     });
 
     it('can upload a PDF file even if it has no extractable text', function () {
@@ -66,9 +88,9 @@ describe('KnowledgeBase Upload', function () {
             'file' => $file,
         ]);
 
-        $response->assertStatus(201);
+        $response->assertAccepted();
         expect(Document::count())->toBe(1);
-        expect($response->json('warning'))->toBeTruthy();
+        expect(Document::first()->status)->toBe('needs_ocr');
     });
 
     it('can upload a large file (above the old 10MB limit)', function () {
@@ -84,7 +106,7 @@ describe('KnowledgeBase Upload', function () {
             'file' => $file,
         ]);
 
-        $response->assertStatus(201);
+        $response->assertAccepted();
         expect(Document::count())->toBe(1);
     });
 
@@ -111,7 +133,7 @@ describe('KnowledgeBase Upload', function () {
             'file' => $file,
         ]);
 
-        $response->assertStatus(201);
+        $response->assertAccepted();
         expect(Document::count())->toBe(1);
     });
 
@@ -151,11 +173,13 @@ describe('KnowledgeBase Upload', function () {
             'file' => $file,
         ]);
 
-        $response->assertStatus(201);
+        $response->assertAccepted();
 
         $document = Document::first();
         expect($document->name)->toBe($fileName);
         expect($document->user_id)->toBe($this->user->id);
+        expect($document->disk)->toBe('local');
+        expect($document->type)->toBe(Document::TYPE_KNOWLEDGE_BASE);
         expect($document->file_size)->toBeGreaterThan(0);
     });
 });

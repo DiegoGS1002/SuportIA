@@ -25,7 +25,15 @@
                         />
                         <path d="m4 15 4-4 4 4 4-5 4 5" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    Print enviado
+                    <a
+                        v-if="message.attachment_document_id"
+                        :href="`/api/chats/${message.chat_id}/messages/${message.id}/attachment`"
+                        target="_blank"
+                        class="underline"
+                    >
+                        Ver print enviado
+                    </a>
+                    <span v-else>Print enviado</span>
                 </p>
 
                 {{ message.content }}
@@ -37,6 +45,14 @@
                 >
                     {{ sourceLabel }}
                 </p>
+
+                <ul v-if="message.metadata?.sources?.length" class="mt-2 space-y-1 border-t border-slate-200 pt-2 text-xs">
+                    <li v-for="source in message.metadata.sources" :key="source.url">
+                        <a :href="source.url" target="_blank" rel="noopener noreferrer" class="text-brand-700 underline">
+                            {{ source.title || source.url }}
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
@@ -65,4 +81,3 @@ const sourceLabel = computed(() => {
     }
 });
 </script>
-

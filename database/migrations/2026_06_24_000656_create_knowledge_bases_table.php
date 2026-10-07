@@ -37,7 +37,7 @@ return new class extends Migration
                     'ALTER TABLE knowledge_bases MODIFY embedding VECTOR(%d) NULL',
                     self::EMBEDDING_DIMENSIONS
                 ));
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // MySQL server does not support the VECTOR type (pre-9.0).
                 // JSON column already created above will be used as a fallback.
             }

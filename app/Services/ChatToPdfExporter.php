@@ -4,8 +4,9 @@ namespace App\Services;
 
 use App\Models\Chat;
 use App\Models\Document;
-use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ChatToPdfExporter
 {
@@ -16,18 +17,25 @@ class ChatToPdfExporter
         $pdf = Pdf::loadHTML($html);
 
         // Salvar arquivo
-        $filename = $this->sanitizeFilename($documentName) . '.pdf';
-        $path = 'documents/' . now()->format('Y/m') . '/' . $filename;
+        $filename = $this->sanitizeFilename($documentName).'-'.Str::uuid().'.pdf';
+        $path = 'documents/'.now()->format('Y/m').'/'.$filename;
 
-        Storage::disk('public')->put($path, $pdf->output());
+        $pdfContent = $pdf->output();
+        if (! Storage::disk('local')->put($path, $pdfContent)) {
+            throw new \RuntimeException('Nao foi possivel armazenar o PDF exportado.');
+        }
 
         // Criar registro no banco
         $document = Document::create([
             'user_id' => $userId,
             'chat_id' => $chat->id,
-            'name' => $documentName,
+            'type' => Document::TYPE_CHAT_EXPORT,
+            'name' => $this->sanitizeFilename($documentName).'.pdf',
             'file_path' => $path,
-            'file_size' => strlen($pdf->output()),
+            'disk' => 'local',
+            'mime_type' => 'application/pdf',
+            'status' => 'indexed',
+            'file_size' => strlen($pdfContent),
         ]);
 
         return $document;
@@ -46,22 +54,26 @@ class ChatToPdfExporter
             $roleLabel = $message->role === 'user' ? 'Usuário' : 'Assistente';
             $roleClass = $message->role === 'user' ? 'user-message' : 'assistant-message';
 
+            $content = nl2br(e((string) $message->content));
+
             return <<<HTML
                 <div class="message $roleClass">
                     <strong class="role-label">$roleLabel:</strong>
-                    <p class="message-content">{$message->content}</p>
+                    <p class="message-content">$content</p>
                 </div>
             HTML;
         })->join("\n");
 
         $createdAt = $chat->created_at->format('d/m/Y H:i:s');
+        $exportedAt = now()->format('d/m/Y H:i:s');
+        $title = e($chat->title ?: 'Atendimento');
 
         return <<<HTML
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{$chat->title}</title>
+    <title>$title</title>
     <style>
         * {
             margin: 0;
@@ -159,7 +171,7 @@ class ChatToPdfExporter
 <body>
     <div class="container">
         <div class="header">
-            <h1>{$chat->title}</h1>
+            <h1>$title</h1>
             <div class="info">
                 <div class="info-row">
                     <span class="info-label">Software:</span>
@@ -182,7 +194,7 @@ class ChatToPdfExporter
 
         <div class="footer">
             <p>Documento gerado automaticamente pelo Sistema SuportIA</p>
-            <p>Data da exportação: {now()->format('d/m/Y H:i:s')}</p>
+            <p>Data da exportação: $exportedAt</p>
         </div>
     </div>
 </body>
@@ -196,8 +208,8 @@ HTML;
         $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename);
         // Remove múltiplos underscores
         $filename = preg_replace('/_+/', '_', $filename);
+
         // Limita o comprimento
-        return substr($filename, 0, 100);
+        return substr($filename ?: 'atendimento', 0, 100);
     }
 }
-

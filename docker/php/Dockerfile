@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     unzip \
     zip \
+    poppler-utils \
     libzip-dev \
     libpng-dev \
     libjpeg62-turbo-dev \

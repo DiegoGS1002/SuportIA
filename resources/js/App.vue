@@ -1,6 +1,6 @@
 <template>
     <div class="flex min-h-screen bg-app-bg text-navy-900">
-        <Sidebar />
+        <Sidebar v-if="route.name !== 'login'" />
 
         <main class="flex flex-1 flex-col overflow-hidden">
             <router-view />
@@ -10,5 +10,7 @@
 
 <script setup>
 import Sidebar from './Components/Shared/Sidebar.vue';
-</script>
+import { useRoute } from 'vue-router';
 
+const route = useRoute();
+</script>

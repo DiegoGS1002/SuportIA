@@ -8,7 +8,7 @@ class DocumentValidationService
 {
     public static function validateStoredDocument(KnowledgeBase $document): bool
     {
-        if (!$document->content || !$document->embedding) {
+        if (! $document->content || ! $document->embedding) {
             return false;
         }
 
@@ -18,7 +18,7 @@ class DocumentValidationService
             return false;
         }
 
-        if (!is_array($document->embedding) || empty($document->embedding)) {
+        if (! is_array($document->embedding) || empty($document->embedding)) {
             return false;
         }
 
@@ -36,7 +36,7 @@ class DocumentValidationService
             $score -= 0.1;
         }
 
-        if (!is_array($document->embedding) || empty($document->embedding)) {
+        if (! is_array($document->embedding) || empty($document->embedding)) {
             $score -= 0.5;
         }
 
@@ -56,4 +56,3 @@ class DocumentValidationService
         return trim($content);
     }
 }
-

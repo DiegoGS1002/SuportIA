@@ -9,9 +9,9 @@
                 class="group mb-8 flex justify-center"
             >
                 <img
-                    src="/logo.png"
-                    alt="Nexora Agent IA"
-                    class="w-46 object-contain transition duration-300 group-hover:scale-100"
+                    src="/logo.png?v=20261006"
+                    alt="SuportIA"
+                    class="h-auto w-full max-w-[190px] object-contain transition duration-300 group-hover:scale-[1.02]"
                 />
             </router-link>
 
@@ -41,8 +41,10 @@
         </div>
 
         <!-- Usuário -->
-        <div
-            class="group flex cursor-pointer items-center justify-between rounded-2xl px-3 py-3 transition hover:bg-[#111f42]"
+        <button
+            type="button"
+            class="group flex items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-[#111f42]"
+            @click="logout"
         >
             <div class="flex items-center gap-3">
                 <div
@@ -75,18 +77,24 @@
                     d="M19 9l-7 7-7-7"
                 />
             </svg>
-        </div>
+        </button>
     </aside>
 </template>
 
 <script setup>
-import { useRoute } from 'vue-router';
-import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { authApi } from '../../Services/api.js';
 import HomeIcon from '../Icons/HomeIcon.vue';
 import ChatIcon from '../Icons/ChatIcon.vue';
 import DocumentsIcon from '../Icons/DocumentsIcon.vue';
 
 const route = useRoute();
+const router = useRouter();
+
+async function logout() {
+    await authApi.logout();
+    window.location.href = router.resolve({ name: 'login' }).href;
+}
 
 const navItems = [
     {
@@ -116,5 +124,3 @@ const isActive = (item) => {
     return route.path.startsWith('/' + item.name);
 };
 </script>
-
-
