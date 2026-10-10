@@ -3,6 +3,7 @@
 use App\AI\Embeddings\OpenAIEmbeddingClient;
 use App\Models\Document;
 use App\Models\KnowledgeBase;
+use App\Models\User;
 use App\Services\Search\EmbeddingWriter;
 use App\Services\Search\VectorSearchService;
 use App\Services\Search\VectorTypeDetector;
@@ -48,7 +49,8 @@ function fakeEmbeddingClient(array $embedding): OpenAIEmbeddingClient
 }
 
 it('filters out results whose distance exceeds the configured max distance', function () {
-    $document = Document::create(['name' => 'doc.txt', 'file_path' => 'x', 'file_size' => 1]);
+    $user = User::factory()->create();
+    $document = Document::create(['user_id' => $user->id, 'name' => 'doc.txt', 'file_path' => 'x', 'file_size' => 1, 'status' => 'indexed']);
 
     // Orthogonal vectors: an exact match (distance ~0) and a dissimilar one
     // (distance ~1), so we can assert the max distance threshold behavior
@@ -72,14 +74,15 @@ it('filters out results whose distance exceeds the configured max distance', fun
         maxDistance: 0.6,
     );
 
-    $results = $service->search('pergunta relevante', 'home');
+    $results = $service->search('pergunta relevante', $user->id, 'home');
 
     expect($results)->toHaveCount(1);
     expect($results[0]['title'])->toBe('Relevante');
 });
 
 it('returns no results when the best match exceeds the max distance', function () {
-    $document = Document::create(['name' => 'doc.txt', 'file_path' => 'x', 'file_size' => 1]);
+    $user = User::factory()->create();
+    $document = Document::create(['user_id' => $user->id, 'name' => 'doc.txt', 'file_path' => 'x', 'file_size' => 1, 'status' => 'indexed']);
 
     $stored = [1.0, -1.0, 1.0, -1.0];
     $query = array_fill(0, 4, 1.0);
@@ -100,7 +103,50 @@ it('returns no results when the best match exceeds the max distance', function (
         maxDistance: 0.1,
     );
 
-    $results = $service->search('pergunta nao relacionada', 'home');
+    $results = $service->search('pergunta nao relacionada', $user->id, 'home');
 
     expect($results)->toBe([]);
+});
+
+it('searches indexed knowledge and exported documents only for their owner', function () {
+    $owner = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $embedding = array_fill(0, 4, 1.0);
+
+    foreach ([
+        [$owner->id, Document::TYPE_KNOWLEDGE_BASE, 'indexed', 'Manual interno'],
+        [$owner->id, Document::TYPE_CHAT_EXPORT, 'indexed', 'Atendimento exportado'],
+        [$owner->id, Document::TYPE_KNOWLEDGE_BASE, 'processing', 'Ainda processando'],
+        [$otherUser->id, Document::TYPE_KNOWLEDGE_BASE, 'indexed', 'Documento de outro usuario'],
+    ] as [$userId, $type, $status, $title]) {
+        $document = Document::create([
+            'user_id' => $userId,
+            'type' => $type,
+            'status' => $status,
+            'name' => $title.'.pdf',
+            'file_path' => 'x',
+            'file_size' => 1,
+        ]);
+        $chunk = KnowledgeBase::create([
+            'document_id' => $document->id,
+            'software' => 'home',
+            'title' => $title,
+            'content' => 'Conteudo pesquisavel deste documento para validacao.',
+        ]);
+        app(EmbeddingWriter::class)->store($chunk->id, $embedding);
+    }
+
+    $service = new VectorSearchService(
+        embeddingClient: fakeEmbeddingClient($embedding),
+        vectorTypeDetector: app(VectorTypeDetector::class),
+        topK: 10,
+        maxDistance: 0.6,
+    );
+
+    $results = $service->search('conteudo pesquisavel', $owner->id, 'home');
+
+    expect(array_column($results, 'title'))->toEqualCanonicalizing([
+        'Manual interno',
+        'Atendimento exportado',
+    ]);
 });

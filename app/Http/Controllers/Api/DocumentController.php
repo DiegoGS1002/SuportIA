@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessKnowledgeBaseDocument;
 use App\Models\Document;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +39,34 @@ class DocumentController extends Controller
             $document->name,
             ['Content-Type' => $document->mime_type ?? 'application/octet-stream'],
         );
+    }
+
+    /**
+     * Re-index an exported conversation so it can be searched by the agent.
+     */
+    public function retry(Request $request, Document $document): JsonResponse
+    {
+        abort_unless(
+            $document->user_id === $request->user()->id
+                && $document->type === Document::TYPE_CHAT_EXPORT
+                && $document->chat !== null,
+            404,
+        );
+
+        $document->update([
+            'software' => $document->chat->software,
+            'title' => $document->title ?: pathinfo($document->name, PATHINFO_FILENAME),
+            'status' => 'uploaded',
+            'error_message' => null,
+            'chunks_count' => 0,
+        ]);
+
+        ProcessKnowledgeBaseDocument::dispatch($document->id);
+
+        return response()->json([
+            'message' => 'Documento reenviado para indexacao.',
+            'document' => $document->fresh(),
+        ], 202);
     }
 
     /**

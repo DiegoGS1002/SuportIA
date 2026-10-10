@@ -3,6 +3,7 @@
 namespace App\Services\Search;
 
 use App\AI\Embeddings\OpenAIEmbeddingClient;
+use App\Models\Document;
 use App\Models\KnowledgeBase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\LazyCollection;
@@ -31,13 +32,13 @@ final readonly class VectorSearchService
      *
      * @return array<int, array{id: int, title: string, content: string, distance: float}>
      */
-    public function search(string $query, ?string $software = null): array
+    public function search(string $query, int $userId, ?string $software = null): array
     {
         $embedding = $this->embeddingClient->embed($query);
 
         $results = $this->vectorTypeDetector->supportsNativeDistance()
-            ? $this->searchWithMySqlVector($embedding, $software)
-            : $this->searchWithPhpFallback($embedding, $software);
+            ? $this->searchWithMySqlVector($embedding, $userId, $software)
+            : $this->searchWithPhpFallback($embedding, $userId, $software);
 
         return array_values(array_filter(
             $results,
@@ -54,17 +55,21 @@ final readonly class VectorSearchService
      * @param  array<int, float>  $embedding
      * @return array<int, array{id: int, title: string, content: string, distance: float}>
      */
-    private function searchWithMySqlVector(array $embedding, ?string $software): array
+    private function searchWithMySqlVector(array $embedding, int $userId, ?string $software): array
     {
         $embeddingJson = json_encode($embedding, JSON_THROW_ON_ERROR);
 
         $query = DB::table('knowledge_bases')
-            ->select('id', 'title', 'content')
-            ->selectRaw('VECTOR_DISTANCE(embedding, STRING_TO_VECTOR(?), \'cosine\') AS distance', [$embeddingJson])
-            ->whereNotNull('embedding');
+            ->join('documents', 'documents.id', '=', 'knowledge_bases.document_id')
+            ->select('knowledge_bases.id', 'knowledge_bases.title', 'knowledge_bases.content')
+            ->selectRaw('VECTOR_DISTANCE(knowledge_bases.embedding, STRING_TO_VECTOR(?), \'cosine\') AS distance', [$embeddingJson])
+            ->whereNotNull('knowledge_bases.embedding')
+            ->where('documents.user_id', $userId)
+            ->where('documents.status', 'indexed')
+            ->whereIn('documents.type', [Document::TYPE_KNOWLEDGE_BASE, Document::TYPE_CHAT_EXPORT]);
 
         if ($software !== null) {
-            $query->where('software', $software);
+            $query->where('knowledge_bases.software', $software);
         }
 
         return $query
@@ -90,10 +95,14 @@ final readonly class VectorSearchService
      * @param  array<int, float>  $embedding
      * @return array<int, array{id: int, title: string, content: string, distance: float}>
      */
-    private function searchWithPhpFallback(array $embedding, ?string $software): array
+    private function searchWithPhpFallback(array $embedding, int $userId, ?string $software): array
     {
         $query = KnowledgeBase::query()
             ->whereNotNull('embedding')
+            ->whereHas('document', fn ($query) => $query
+                ->where('user_id', $userId)
+                ->where('status', 'indexed')
+                ->whereIn('type', [Document::TYPE_KNOWLEDGE_BASE, Document::TYPE_CHAT_EXPORT]))
             ->when($software !== null, fn ($query) => $query->where('software', $software));
 
         if ($this->vectorTypeDetector->supportsNativeType()) {

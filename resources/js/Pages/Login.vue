@@ -22,12 +22,20 @@
 
             <label class="mb-5 block text-sm font-medium text-slate-700">
                 Senha
-                <input v-model="password" type="password" autocomplete="current-password" required class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" />
+                <input
+                    v-model="password"
+                    type="password"
+                    :autocomplete="setupRequired ? 'new-password' : 'current-password'"
+                    :minlength="setupRequired ? 8 : undefined"
+                    required
+                    class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                />
+                <span v-if="setupRequired" class="mt-1 block text-xs font-normal text-slate-500">Minimo de 8 caracteres.</span>
             </label>
 
             <label v-if="setupRequired" class="mb-5 block text-sm font-medium text-slate-700">
                 Confirmar senha
-                <input v-model="passwordConfirmation" type="password" autocomplete="new-password" required class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" />
+                <input v-model="passwordConfirmation" type="password" autocomplete="new-password" minlength="8" required class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" />
             </label>
 
             <p v-if="error" class="mb-4 text-sm text-red-600">{{ error }}</p>
@@ -75,7 +83,10 @@ async function submit() {
         }
         await router.push({ name: 'home' });
     } catch (exception) {
-        error.value = exception.response?.data?.message || 'Nao foi possivel entrar.';
+        const validationErrors = exception.response?.data?.errors;
+        error.value = Object.values(validationErrors ?? {}).flat()[0]
+            || exception.response?.data?.message
+            || 'Nao foi possivel entrar.';
     } finally {
         loading.value = false;
     }

@@ -49,6 +49,7 @@ class ProcessKnowledgeBaseDocument implements ShouldQueue
         }
 
         if (! $processor->isValidContent($content)) {
+            $document->knowledgeBases()->delete();
             $document->update([
                 'status' => 'needs_ocr',
                 'error_message' => 'Nao foi possivel extrair texto legivel deste arquivo.',

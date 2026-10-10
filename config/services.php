@@ -43,7 +43,7 @@ return [
         'vision_model' => env('OPENAI_VISION_MODEL', 'gpt-4o'),
         'embeddings_model' => env('OPENAI_EMBEDDINGS_MODEL', 'text-embedding-3-small'),
         'embeddings_dimensions' => (int) env('OPENAI_EMBEDDINGS_DIMENSIONS', 1536),
-        'rag_top_k' => (int) env('OPENAI_RAG_TOP_K', 3),
+        'rag_top_k' => (int) env('OPENAI_RAG_TOP_K', 5),
         'rag_max_distance' => (float) env('OPENAI_RAG_MAX_DISTANCE', 0.6),
     ],
 

@@ -102,7 +102,11 @@ final readonly class SupportAgent
         );
 
         try {
-            $documents = $this->vectorSearchService->search($effectiveMessage, $chat->software);
+            $documents = $this->vectorSearchService->search(
+                $effectiveMessage,
+                $chat->user_id,
+                $chat->software,
+            );
 
             if ($documents === []) {
                 $storedUserMessage->update(['status' => 'completed']);

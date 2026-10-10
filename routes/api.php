@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('web')->group(function () {
     Route::get('/setup/status', [AuthController::class, 'setupStatus']);
     Route::post('/setup', [AuthController::class, 'setup'])->middleware('throttle:login');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login')->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
     Route::middleware('auth')->group(function () {
         Route::get('/auth/user', [AuthController::class, 'user']);
@@ -28,6 +28,7 @@ Route::middleware('web')->group(function () {
         Route::prefix('documents')->group(function () {
             Route::get('/', [DocumentController::class, 'index']);
             Route::get('/{document}/download', [DocumentController::class, 'download']);
+            Route::post('/{document}/retry', [DocumentController::class, 'retry'])->middleware('throttle:uploads');
             Route::delete('/{document}', [DocumentController::class, 'destroy']);
         });
 

@@ -40,7 +40,9 @@ router.beforeEach(async (to) => {
         return true;
     }
 
-    if (authenticated === null) {
+    // A failed check must not be cached permanently: the login request can
+    // establish a valid session without reloading the SPA.
+    if (authenticated !== true) {
         try {
             await authApi.user();
             authenticated = true;

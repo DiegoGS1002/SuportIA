@@ -157,6 +157,13 @@ export const documentApi = {
     },
 
     /**
+     * Re-indexes a previously exported conversation.
+     */
+    retry(documentId) {
+        return http.post(`/documents/${documentId}/retry`).then((response) => response.data);
+    },
+
+    /**
      * Deletes a document.
      */
     delete(documentId) {

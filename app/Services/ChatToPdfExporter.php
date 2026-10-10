@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\ProcessKnowledgeBaseDocument;
 use App\Models\Chat;
 use App\Models\Document;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -34,9 +35,13 @@ class ChatToPdfExporter
             'file_path' => $path,
             'disk' => 'local',
             'mime_type' => 'application/pdf',
-            'status' => 'indexed',
+            'software' => $chat->software,
+            'title' => $documentName,
+            'status' => 'uploaded',
             'file_size' => strlen($pdfContent),
         ]);
+
+        ProcessKnowledgeBaseDocument::dispatch($document->id);
 
         return $document;
     }

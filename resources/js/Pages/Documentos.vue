@@ -152,6 +152,15 @@
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-slate-400">{{ formatDate(document.created_at) }}</span>
                                 <button
+                                    v-if="document.chunks_count === 0 && !['uploaded', 'processing'].includes(document.status)"
+                                    type="button"
+                                    title="Indexar para consulta do agente"
+                                    class="rounded-lg px-2 py-1 text-xs font-medium text-amber-600 transition hover:bg-amber-50"
+                                    @click="retryExportedDocument(document)"
+                                >
+                                    Indexar
+                                </button>
+                                <button
                                     type="button"
                                     title="Baixar documento"
                                     class="rounded-lg p-1.5 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
@@ -444,19 +453,28 @@ async function retryDocument(document) {
     }
 }
 
-async function downloadExportedDocument(document) {
+async function downloadExportedDocument(exportedDocument) {
     try {
-        const response = await documentApi.download(document.id);
+        const response = await documentApi.download(exportedDocument.id);
         const url = window.URL.createObjectURL(response.data);
-        const a = document.createElement('a');
+        const a = window.document.createElement('a');
         a.href = url;
-        a.download = document.name;
-        document.body.appendChild(a);
+        a.download = exportedDocument.name;
+        window.document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        window.document.body.removeChild(a);
     } catch (err) {
         alert('Erro ao baixar documento.');
+    }
+}
+
+async function retryExportedDocument(exportedDocument) {
+    try {
+        await documentApi.retry(exportedDocument.id);
+        await loadExportedDocuments();
+    } catch (err) {
+        alert(err.response?.data?.message || 'Erro ao indexar documento.');
     }
 }
 
@@ -477,6 +495,9 @@ async function init() {
     refreshTimer = window.setInterval(() => {
         if (documents.value.some((document) => ['uploaded', 'processing'].includes(document.status))) {
             loadKnowledgeBase();
+        }
+        if (exportedDocuments.value.some((document) => ['uploaded', 'processing'].includes(document.status))) {
+            loadExportedDocuments();
         }
     }, 5000);
 }
